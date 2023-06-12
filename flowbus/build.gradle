@@ -2,6 +2,7 @@ plugins {
     id 'com.android.library'
     id 'org.jetbrains.kotlin.android'
     id 'maven-publish'
+    id 'signing'
 }
 
 android {
@@ -23,11 +24,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '11'
     }
 }
 
@@ -48,10 +49,44 @@ task generateSourcesJar(type: Jar) {
     classifier 'sources'
 }
 
+ext["signing.keyId"] = ''
+ext["signing.password"] = ''
+ext["signing.secretKeyRingFile"] = ''
+ext["ossrhUsername"] = ''
+ext["ossrhPassword"] = ''
+
+File secretPropsFile = project.rootProject.file('local.properties')
+if (secretPropsFile.exists()) {
+    println "Found secret props file, loading props"
+    Properties p = new Properties()
+    p.load(new FileInputStream(secretPropsFile))
+    p.each { name, value ->
+        ext[name] = value
+    }
+} else {
+    println "No props file, loading env vars"
+}
+
 afterEvaluate {
     publishing {
         repositories { handler ->
-            handler.mavenCentral()
+            handler.maven {
+                // This is an arbitrary name, you may also use "mavencentral" or
+                // any other name that's descriptive for you
+                name = "FlowBus"
+
+                def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+                def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+                // You only need this if you want to publish snapshots, otherwise just set the URL
+                // to the release repo directly
+                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+
+                // The username and password we've fetched earlier
+                credentials {
+                    username ossrhUsername
+                    password ossrhPassword
+                }
+            }
         }
         publications {
             // Creates a Maven publication called "release".
@@ -60,26 +95,44 @@ afterEvaluate {
                 from components.release
 
                 // You can then customize attributes of the publication as shown below.
-                groupId = 'com.qtk.flowbus'
+                groupId = 'io.github.qtkun'
                 artifactId = 'flowbus'
-                version = '1.0.0'
+                version = '1.0.1'
                 artifact generateSourcesJar
 
-                def projectName = project.getName()
-                artifact "build/outputs/aar/${projectName}-release.aar"
-
-                pom.withXml{
-                    def dependenciesNode = asNode().appendNode("dependencies")
-                    configurations.implementation.allDependencies.each {
-                        if (it.group != null && (it.name != null && "unspecified" != it.name) && it.version != null){
-                            def dependencyNode = dependenciesNode.appendNode('dependency')
-                            dependencyNode.appendNode('groupId', dependency.group)
-                            dependencyNode.appendNode('artifactId', dependency.name)
-                            dependencyNode.appendNode('version', dependency.version)
+                pom {
+                    name = 'flowbus'
+                    description = 'Implementing eventbus using flow'
+                    // If your project has a dedicated site, use its URL here
+                    url = 'https://github.com/qtkun/FlowBus'
+                    licenses {
+                        license {
+                            //协议类型，一般默认Apache License2.0的话不用改：
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
                         }
+                    }
+                    developers {
+                        developer {
+                            id = 'qtkun'
+                            name = 'Taikun Qu'
+                            email = 'qutkun@gmail.com'
+                        }
+                    }
+                    // Version control info, if you're using GitHub, follow the format as seen here
+                    scm {
+                        //修改成你的Git地址：
+                        connection = 'scm:git:github.com/qtkun/FlowBus.git'
+                        developerConnection = 'scm:git:ssh://github.com/qtkun/FlowBus.git'
+                        //分支地址：
+                        url = 'https://github.com/qtkun/FlowBus/tree/main'
                     }
                 }
             }
         }
     }
+}
+
+signing {
+    sign publishing.publications
 }

@@ -1,12 +1,7 @@
 package com.qtk.flowbus.viewmodel
 
 import android.util.Log
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.whenStateAtLeast
+import androidx.lifecycle.*
 import com.qtk.flowbus.observe.OnReceived
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -50,6 +45,7 @@ class EventViewModel: ViewModel() {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun <T>observeEvent(
         lifecycleOwner: LifecycleOwner,
         minActiveState: Lifecycle.State,
@@ -59,12 +55,15 @@ class EventViewModel: ViewModel() {
         onReceived: OnReceived<T>
     ) {
         lifecycleOwner.lifecycleScope.launch {
-            lifecycleOwner.lifecycle.whenStateAtLeast(minActiveState) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
                 getEventFlow(eventName, isSticky)
                     .distinctUntilChanged()
                     .collect {
                         launch(dispatcher) {
                             invokeReceived(it, onReceived)
+                            if (!isSticky) {
+                                eventFlows[eventName]?.resetReplayCache()
+                            }
                         }
                     }
             }
