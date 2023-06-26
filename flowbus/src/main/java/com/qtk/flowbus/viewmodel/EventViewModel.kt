@@ -13,17 +13,21 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 class EventViewModel: ViewModel() {
+    companion object {
+        private const val REPLAY = 1
+        private const val EXTRA_BUFFER_SIZE = 10
+    }
     private val eventFlows = ConcurrentHashMap<String, MutableSharedFlow<Any>>()
     private val stickyEventFlows = ConcurrentHashMap<String, MutableSharedFlow<Any>>()
 
     private fun getEventFlow(name: String, isSticky: Boolean): MutableSharedFlow<Any> {
         return if (isSticky) {
             stickyEventFlows[name]
-                ?: MutableSharedFlow<Any>(1, 1, BufferOverflow.DROP_OLDEST).also {
-                stickyEventFlows[name] = it
-            }
+                ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
+                    stickyEventFlows[name] = it
+                }
         } else {
-            eventFlows[name] ?: MutableSharedFlow<Any>(0).also {
+            eventFlows[name] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
                 eventFlows[name] = it
             }
         }
