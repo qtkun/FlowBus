@@ -20,15 +20,14 @@ class EventViewModel: ViewModel() {
     private val eventFlows = ConcurrentHashMap<String, MutableSharedFlow<Any>>()
     private val stickyEventFlows = ConcurrentHashMap<String, MutableSharedFlow<Any>>()
 
-    private fun getEventFlow(name: String, isSticky: Boolean): MutableSharedFlow<Any> {
+    private fun getEventFlow(eventName: String, isSticky: Boolean): MutableSharedFlow<Any> {
         return if (isSticky) {
-            stickyEventFlows[name]
-                ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
-                    stickyEventFlows[name] = it
-                }
+            stickyEventFlows[eventName] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
+                stickyEventFlows[eventName] = it
+            }
         } else {
-            eventFlows[name] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
-                eventFlows[name] = it
+            eventFlows[eventName] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
+                eventFlows[eventName] = it
             }
         }
     }
