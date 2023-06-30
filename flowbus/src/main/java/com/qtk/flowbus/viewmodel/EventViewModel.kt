@@ -4,12 +4,15 @@ import android.util.Log
 import androidx.lifecycle.*
 import com.qtk.flowbus.observe.OnReceived
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
 class EventViewModel: ViewModel() {
@@ -17,17 +20,23 @@ class EventViewModel: ViewModel() {
         private const val REPLAY = 1
         private const val EXTRA_BUFFER_SIZE = 10
     }
-    private val eventFlows = ConcurrentHashMap<String, MutableSharedFlow<Any>>()
-    private val stickyEventFlows = ConcurrentHashMap<String, MutableSharedFlow<Any>>()
+    private val eventFlows = HashMap<String, MutableSharedFlow<Any>>()
+    private val stickyEventFlows = HashMap<String, MutableSharedFlow<Any>>()
 
-    private fun getEventFlow(eventName: String, isSticky: Boolean): MutableSharedFlow<Any> {
+    private val mutex = Mutex()
+
+    private suspend fun getEventFlow(eventName: String, isSticky: Boolean): MutableSharedFlow<Any> {
         return if (isSticky) {
-            stickyEventFlows[eventName] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
-                stickyEventFlows[eventName] = it
+            mutex.withLock {
+                stickyEventFlows[eventName] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
+                    stickyEventFlows[eventName] = it
+                }
             }
         } else {
-            eventFlows[eventName] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
-                eventFlows[eventName] = it
+            mutex.withLock {
+                eventFlows[eventName] ?: MutableSharedFlow<Any>(REPLAY, EXTRA_BUFFER_SIZE, BufferOverflow.DROP_OLDEST).also {
+                    eventFlows[eventName] = it
+                }
             }
         }
     }
@@ -37,12 +46,13 @@ class EventViewModel: ViewModel() {
         value: Any,
         delayTimeMillis: Long
     ) {
-        listOf(
-            getEventFlow(eventName, true),
-            getEventFlow(eventName, false)
-        ).forEach { eventFlow ->
-            viewModelScope.launch {
-                delay(delayTimeMillis)
+        viewModelScope.launch(Dispatchers.IO) {
+            val eventFlows = listOf(
+                getEventFlow(eventName, true),
+                getEventFlow(eventName, false)
+            )
+            delay(delayTimeMillis)
+            eventFlows.forEach { eventFlow ->
                 eventFlow.emit(value)
             }
         }
@@ -57,7 +67,7 @@ class EventViewModel: ViewModel() {
         isSticky: Boolean,
         onReceived: OnReceived<T>
     ) {
-        lifecycleOwner.lifecycleScope.launch {
+        lifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
                 getEventFlow(eventName, isSticky)
                     .distinctUntilChanged()

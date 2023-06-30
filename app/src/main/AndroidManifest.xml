@@ -11,6 +11,17 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.FlowBus"
-        tools:targetApi="31" />
+        android:name=".MyApplication"
+        tools:targetApi="31" >
+        <activity android:name="com.qtkun.flowbus.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.qtkun.flowbus.SecondActivity" />
+    </application>
 
 </manifest>

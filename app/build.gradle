@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace 'com.qtkun.flowbus'
-    compileSdk 32
+    compileSdk 33
 
     defaultConfig {
         applicationId "com.qtkun.flowbus"
         minSdk 26
-        targetSdk 32
+        targetSdk 33
         versionCode 1
         versionName "1.0"
 
@@ -23,6 +23,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    viewBinding {
+        enable = true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
